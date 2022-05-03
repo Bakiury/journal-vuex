@@ -8,6 +8,14 @@
             </div>
 
             <div>
+                <input
+                    type="file"
+                    @change="onSelectedImage"
+                    ref="imageSelector"
+                    v-show="false"
+                    accept="image/png, image/jpeg, image/jpg"
+                />
+
                 <button
                     v-if="entry.id"
                     class="btn btn-danger mx-2"
@@ -17,7 +25,7 @@
                     <i class="fa fa-trash-alt"></i>
                 </button>
 
-                <button class="btn btn-primary">
+                <button class="btn btn-primary" @click="onSelectImage">
                     Subir foto
                     <i class="fa fa-upload"></i>
                 </button>
@@ -34,7 +42,15 @@
         </div>
 
         <img
-            src="https://pcredcom.com/blog/wp-content/uploads/2020/09/pc-gamer-portatil-gamer.jpg"
+            v-if="localImage"
+            :src="localImage"
+            alt="entry-picture"
+            class="img-thumbnail"
+        />
+
+        <img
+            v-if="entry.picture && !localImage"
+            :src="entry.picture"
             alt="entry-picture"
             class="img-thumbnail"
         />
@@ -48,6 +64,7 @@ import { defineAsyncComponent } from 'vue'
 import { mapGetters, mapActions } from 'vuex'
 import getDayMonthYear from '../helpers/getDayMonthYear'
 import Swal from 'sweetalert2'
+import uploadImage from '../helpers/uploadImage.js'
 
 export default {
     props: {
@@ -59,6 +76,8 @@ export default {
     data() {
         return {
             entry: null,
+            localImage: null,
+            file: null,
         }
     },
     components: {
@@ -87,6 +106,11 @@ export default {
             })
             Swal.showLoading()
 
+            const picture = await uploadImage(this.file) // To upload the image in cloudinary
+            if (picture) {
+                this.entry.picture = picture // Set the picture in backend (firebase)
+            }
+
             if (this.entry.id) {
                 // Update
                 await this.updateEntry(this.entry)
@@ -97,6 +121,7 @@ export default {
                 this.$router.push({ name: 'entry', params: { id } })
             }
 
+            this.file = null
             Swal.fire('Guardado', 'Entrada registrada con éxito', 'success')
         },
         async onDeleteEntry() {
@@ -119,6 +144,23 @@ export default {
 
                 Swal.fire('Eliminado', '', 'success')
             }
+        },
+        onSelectedImage(event) {
+            const file = event.target.files[0]
+            if (!file) {
+                this.localImage = null
+                this.file = null
+                return
+            }
+
+            this.file = file
+
+            const fr = new FileReader()
+            fr.onload = () => (this.localImage = fr.result)
+            fr.readAsDataURL(file)
+        },
+        onSelectImage() {
+            this.$refs.imageSelector.click()
         },
     },
     computed: {
